@@ -25,10 +25,23 @@ function SendEmail(recipient: string, subject: string, body: string) {
   });
 }
 
-function myFunc() {
+function doPost(e) {
   const emailList = getEmailList(SpreadSheetID);
+  const slackData = JSON.parse(e.postData.getDataAsString());
   emailList.forEach((emailData) => {
-    SendEmail(emailData.address, mailSubject, mailBody);
+    SendEmail(
+      emailData.address,
+      `A message from ${slackData.event.user}`,
+      `${slackData.event.user}: ${slackData.event.text}`
+    );
     Logger.log(`Sent an email to ${emailData.name}`);
   });
+  const response = {
+    challenge: e,
+  };
+  return ContentService.createTextOutput(JSON.stringify(response)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }
+
+function getUserInfo(id: string) {}
