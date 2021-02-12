@@ -44,4 +44,21 @@ function doPost(e) {
   );
 }
 
-function getUserInfo(id: string) {}
+function getUserInfo(id: string) {
+  const slackUsersApi: string = "https://slack.com/api/users.profile.get";
+  const params: object = {
+    method: "post",
+    headers: {
+      Authorization: `Bearer ${PropertiesService.getScriptProperties().getProperty(
+        "slackOAthToken"
+      )}`,
+    },
+    payload: {
+      user: id,
+    },
+  };
+  const response = JSON.parse(
+    UrlFetchApp.fetch(slackUsersApi, params).getContentText()
+  );
+  return response;
+}
