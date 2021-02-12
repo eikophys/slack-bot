@@ -28,13 +28,17 @@ function SendEmail(recipient: string, subject: string, body: string) {
 function doPost(e) {
   const emailList = getEmailList(SpreadSheetID);
   const slackData = JSON.parse(e.postData.getDataAsString());
+  const postedUser: string = getUserInfo(slackData.event.user).ok
+    ? getUserInfo(slackData.event.user).profile.display_name_normalized != ""
+      ? getUserInfo(slackData.event.user).profile.display_name_normalized
+      : getUserInfo(slackData.event.user).profile.real_name_normalized
+    : "unknown";
   emailList.forEach((emailData) => {
     SendEmail(
       emailData.address,
-      `A message from ${slackData.event.user}`,
-      `${slackData.event.user}: ${slackData.event.text}`
+      `A message from ${postedUser}`,
+      `${postedUser}: ${slackData.event.text}`
     );
-    Logger.log(`Sent an email to ${emailData.name}`);
   });
   const response = {
     challenge: e,
