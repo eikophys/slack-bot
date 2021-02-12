@@ -20,7 +20,7 @@ function getEmailList(
 }
 
 function SendEmail(recipient: string, subject: string, body: string) {
-  GmailApp.sendEmail(recipient, subject, body, {
+  MailApp.sendEmail(recipient, subject, body, {
     name: "Slack Mail Notification Bot",
   });
 }
