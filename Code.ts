@@ -113,11 +113,12 @@ function appMentioned(slackData: slackEventResponse) {
       ? userInfo.profile.display_name_normalized
       : userInfo.profile.real_name_normalized
     : "unknown";
+  const text = slackData.event.text.replace(/<@.+>/gm, "");
   emailList.forEach((emailData: { address: string; name: string }) => {
     SendEmail(
       emailData.address,
-      `A message from ${postedUser}`,
-      `${postedUser}: ${slackData.event.text}`
+      `${postedUser}からのメッセージ`,
+      `${postedUser}: ${text}`
     );
   });
 }
