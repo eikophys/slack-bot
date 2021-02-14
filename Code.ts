@@ -70,6 +70,33 @@ function addEmail(
   };
 }
 
+function deleteEmail(
+  sheet: GoogleAppsScript.Spreadsheet.Sheet,
+  address: string
+): { error: boolean; message?: string } {
+  let error = false;
+  let message = "";
+  const matchCell: GoogleAppsScript.Spreadsheet.Range[] = sheet
+    .createTextFinder(address)
+    .findAll();
+  if (!matchCell.length) {
+    error = true;
+    message += "このメールアドレスは登録されていません";
+  }
+  if (!error) {
+    sheet.deleteRow(matchCell[0].getRow());
+    SendEmail(
+      address,
+      "メールアドレス登録解除完了",
+      `登録解除が完了しました。\n \n 栄光学園物理研究部 Slack運営チーム`
+    );
+  }
+  return {
+    error: error,
+    message: message,
+  };
+}
+
 function SendEmail(recipient: string, subject: string, body: string) {
   MailApp.sendEmail(recipient, subject, body, {
     name: "Slack Mail Notification Bot",
@@ -114,8 +141,6 @@ interface slashCommandResponse {
 
 function subscribe(e) {
   const slackData: Readonly<slashCommandResponse> = e.parameter;
-  console.info(e);
-  console.info(e.parameter);
   const userInfo = getUserInfo(slackData.user_id);
   const name: string =
     userInfo.profile.display_name_normalized != ""
@@ -135,24 +160,21 @@ function subscribe(e) {
   );
 }
 
-function doPost(e) {
-  if (e.postData.type == "application/json") {
-    const slackData: slackEventResponse = JSON.parse(
-      e.postData.getDataAsString()
-    );
-    if (slackData.token == slackVerificationToken)
-      if (slackData.event.type == "app_mention") {
-        Logger.log("App mentioned");
-        appMentioned(slackData);
-      }
-  } else if (
-    e.postData.type == "application/x-www-form-urlencoded" &&
-    e.parameter.token == slackVerificationToken
-  ) {
-    if ((e.parameter.command = "/subscribe")) {
-      return subscribe(e);
-    }
-  }
+function unsubscribe(e) {
+  const slackData: Readonly<slashCommandResponse> = e.parameter;
+  const userInfo = getUserInfo(slackData.user_id);
+  const address: string = userInfo.profile.email;
+  const deleteEmailStatus = deleteEmail(sheet, address);
+  const message: string = deleteEmailStatus.error
+    ? deleteEmailStatus.message
+    : "登録解除しました";
+  const response = {
+    type: deleteEmailStatus.error ? "ephemeral" : "in_channel",
+    text: message,
+  };
+  return ContentService.createTextOutput(JSON.stringify(response)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }
 
 function getUserInfo(
@@ -188,4 +210,26 @@ function getUserInfo(
     UrlFetchApp.fetch(slackUsersApi, params).getContentText()
   );
   return response;
+}
+
+function doPost(e) {
+  if (e.postData.type == "application/json") {
+    const slackData: slackEventResponse = JSON.parse(
+      e.postData.getDataAsString()
+    );
+    if (slackData.token == slackVerificationToken)
+      if (slackData.event.type == "app_mention") {
+        Logger.log("App mentioned");
+        appMentioned(slackData);
+      }
+  } else if (
+    e.postData.type == "application/x-www-form-urlencoded" &&
+    e.parameter.token == slackVerificationToken
+  ) {
+    if (e.parameter.command == "/subscribe") {
+      return subscribe(e);
+    } else if (e.parameter.command == "/unsubscribe") {
+      return unsubscribe(e);
+    }
+  }
 }
