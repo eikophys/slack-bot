@@ -1,7 +1,7 @@
-const mailSubject: string = "Hallo World";
-const mailBody: string = "This is a test message from GAS";
-
 const SpreadSheetID: string = "1axwEK-8ozcXGm5Xux2A83xYV5pi7aQUv8eHsbIlj8gI";
+const slackAuthToken: string = PropertiesService.getScriptProperties().getProperty(
+  "slackOAthToken"
+);
 
 interface slackEventResponse {
   // https://api.slack.com/apis/connections/events-api#the-events-api__receiving-events__callback-field-overview
@@ -23,12 +23,14 @@ interface slackEventResponse {
     event_ts: string;
   };
 }
+const sheet: GoogleAppsScript.Spreadsheet.Sheet = SpreadsheetApp.openById(
+  SpreadSheetID
+).getSheets()[0];
 
 function getEmailList(
-  SpreadSheetID: string
+  sheet: GoogleAppsScript.Spreadsheet.Sheet
 ): { address: string; name: string }[] {
   let mailData = [];
-  const sheet = SpreadsheetApp.openById(SpreadSheetID);
   const data = sheet.getDataRange().getValues();
   data.shift();
   data.forEach((data) => {
@@ -40,17 +42,35 @@ function getEmailList(
   return mailData;
 }
 
+function addEmail(
+  sheet: GoogleAppsScript.Spreadsheet.Sheet,
+  name: string,
+  address: string
+): { error: boolean; message?: string } {
+  let error = false;
+  let message = "";
+  if (!!sheet.createTextFinder(address).findAll().length) {
+    error = true;
+    message += "このメールアドレスは既に登録済みです。";
+  }
+  if (!error) {
+    sheet.appendRow([name, address, new Date().toLocaleDateString("ja-jp")]);
+  }
+  return {
+    error: error,
+    message: message,
+  };
+}
+
 function SendEmail(recipient: string, subject: string, body: string) {
   MailApp.sendEmail(recipient, subject, body, {
     name: "Slack Mail Notification Bot",
   });
 }
 
-type slackEventResponseReadOnly = Readonly<slackEventResponse>;
-
 function appMentioned(slackData: slackEventResponse) {
   // https://api.slack.com/events/app_mention
-  const emailList = getEmailList(SpreadSheetID);
+  const emailList = getEmailList(sheet);
 
   const postedUser: string = getUserInfo(slackData.event.user).ok
     ? getUserInfo(slackData.event.user).profile.display_name_normalized != ""
@@ -67,19 +87,16 @@ function appMentioned(slackData: slackEventResponse) {
 }
 
 function doPost(e) {
-  const slackData: slackEventResponse = JSON.parse(
-    e.postData.getDataAsString()
-  );
-  if (slackData.type == "app_mention") {
-    appMentioned(slackData);
+  if (e.postData.type == "application/json") {
+    const slackData: slackEventResponse = JSON.parse(
+      e.postData.getDataAsString()
+    );
+    if (slackData.token == slackAuthToken)
+      if (slackData.event.type == "app_mention") {
+        Logger.log("App mentioned");
+        appMentioned(slackData);
+      }
   }
-
-  const response = {
-    challenge: e,
-  };
-  return ContentService.createTextOutput(JSON.stringify(response)).setMimeType(
-    ContentService.MimeType.JSON
-  );
 }
 
 function getUserInfo(id: string) {
@@ -87,9 +104,7 @@ function getUserInfo(id: string) {
   const params: object = {
     method: "post",
     headers: {
-      Authorization: `Bearer ${PropertiesService.getScriptProperties().getProperty(
-        "slackOAthToken"
-      )}`,
+      Authorization: `Bearer ${slackAuthToken}`,
     },
     payload: {
       user: id,
