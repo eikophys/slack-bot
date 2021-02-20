@@ -188,7 +188,7 @@ function newMemberJoined(id: string) {
             text: {
                 type: "mrkdwn",
                 text:
-                    "以下は各班のチャンネルです。各班が独自に連絡手段を持っている場合にはそちらを優先してかまいません\n・<#C01NY3RPGP2>：工学班\n ・<#C01N88NTN58>：PC班\n ・<#C01MTF9RYMV>：環境化学班\n ・<#C01NY3WNL4Q>：数学班\n・<#C01NY3U41Q8>：地学班\n・<#C01MTFWB8CX>：FLL班\n"
+                    "以下は各班のチャンネルです。各班が独自に連絡手段を持っている場合にはそちらを優先してかまいません\n・<#C01NY3RPGP2>：工学班\n ・<#C01N88NTN58>：PC班\n ・<#C01NY3VKXUG>：航空力学班\n ・<#C01MTF9RYMV>：環境化学班\n ・<#C01NY3WNL4Q>：数学班\n・<#C01NY3U41Q8>：地学班\n・<#C01MTFWB8CX>：FLL班\n"
             }
         },
         {
@@ -224,7 +224,7 @@ function newMemberJoined(id: string) {
             }
         }
     ]
-    const params: object = {
+    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
         method: "post",
         headers: {
             Authorization: `Bearer ${slackAuthToken}`
@@ -298,8 +298,6 @@ function unsubscribe(e) {
     ).setMimeType(ContentService.MimeType.JSON)
 }
 
-function help(e) {}
-
 function getUserInfo(
     id: string
 ): {
@@ -346,6 +344,16 @@ function doPost(e) {
                 appMentioned(slackData)
             }
         if (slackData.event.type == "team_join") {
+            const slackCreateMessageAPI: string =
+                "https://slack.com/api/chat.postMessage"
+            UrlFetchApp.fetch(slackCreateMessageAPI, {
+                method: "post",
+                headers: { Authorization: `Bearer ${slackAuthToken}` },
+                payload: {
+                    channel: "C01N5EH24SV",
+                    text: `:wave: ようこそ、 <@${slackData.event.user.id}>！`
+                }
+            }).getContentText()
             newMemberJoined(slackData.event.user.id)
         }
     } else if (
