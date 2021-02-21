@@ -1,8 +1,10 @@
+import * as GoogleAppsScript from 'clasp'
+
 const SpreadSheetID: string = "1axwEK-8ozcXGm5Xux2A83xYV5pi7aQUv8eHsbIlj8gI"
-const slackAuthToken: string = PropertiesService.getScriptProperties().getProperty(
+const slackAuthToken: string = GoogleAppsScript.PropertiesService.getScriptProperties().getProperty(
     "slackOAthToken"
 )
-const slackVerificationToken: string = PropertiesService.getScriptProperties().getProperty(
+const slackVerificationToken: string = GoogleAppsScript.PropertiesService.getScriptProperties().getProperty(
     "slackVerificationToken"
 )
 
@@ -27,7 +29,7 @@ interface slackEventResponse {
         event_ts: string
     }
 }
-const sheet: GoogleAppsScript.Spreadsheet.Sheet = SpreadsheetApp.openById(
+const sheet: GoogleAppsScript.Spreadsheet.Sheet = GoogleAppsScript.SpreadsheetApp.openById(
     SpreadSheetID
 ).getSheets()[0]
 
@@ -111,12 +113,12 @@ function deleteEmail(
 }
 
 function SendEmail(recipient: string, subject: string, body: string) {
-    MailApp.sendEmail(recipient, subject, body, {
+    GoogleAppsScript.MailApp.sendEmail(recipient, subject, body, {
         name: "Slack Mail Notification Bot"
     })
 }
 
-function appMentioned(slackData: slackEventResponse) {
+function appMentioned(slackData) {
     // https://api.slack.com/events/app_mention
     const emailList = getEmailList(sheet)
 
@@ -246,11 +248,11 @@ function newMemberJoined(id: string) {
             blocks: JSON.stringify(blocks)
         }
     }
-    UrlFetchApp.fetch(slackCreateMessageAPI, params).getContentText()
+    GoogleAppsScript.UrlFetchApp.fetch(slackCreateMessageAPI, params).getContentText()
     const returnObj = { blocks: blocks }
-    return ContentService.createTextOutput(
+    return GoogleAppsScript.ContentService.createTextOutput(
         JSON.stringify(returnObj)
-    ).setMimeType(ContentService.MimeType.JSON)
+    ).setMimeType(GoogleAppsScript.ContentService.MimeType.JSON)
 }
 
 interface slashCommandResponse {
@@ -290,9 +292,9 @@ function subscribe(e) {
         type: addEmailStatus.error ? "ephemeral" : "in_channel",
         text: message
     }
-    return ContentService.createTextOutput(
+    return GoogleAppsScript.ContentService.createTextOutput(
         JSON.stringify(response)
-    ).setMimeType(ContentService.MimeType.JSON)
+    ).setMimeType(GoogleAppsScript.ContentService.MimeType.JSON)
 }
 
 function unsubscribe(e) {
@@ -305,15 +307,15 @@ function unsubscribe(e) {
         type: deleteEmailStatus.error ? "ephemeral" : "in_channel",
         text: message
     }
-    return ContentService.createTextOutput(
+    return GoogleAppsScript.ContentService.createTextOutput(
         JSON.stringify(response)
-    ).setMimeType(ContentService.MimeType.JSON)
+    ).setMimeType(GoogleAppsScript.ContentService.MimeType.JSON)
 }
 
 function channel_created(e) {
     const slackCreateMessageAPI: string =
         "https://slack.com/api/chat.postMessage"
-    UrlFetchApp.fetch(slackCreateMessageAPI, {
+    GoogleAppsScript.UrlFetchApp.fetch(slackCreateMessageAPI, {
         method: "post",
         headers: { Authorization: `Bearer ${slackAuthToken}` },
         payload: {
@@ -353,7 +355,7 @@ function getUserInfo(
         }
     }
     const response = JSON.parse(
-        UrlFetchApp.fetch(slackUsersApi, params).getContentText()
+        GoogleAppsScript.UrlFetchApp.fetch(slackUsersApi, params).getContentText()
     )
     return response
 }
@@ -365,13 +367,12 @@ function doPost(e) {
         )
         if (slackData.token == slackVerificationToken) {
             if (slackData.event.type == "app_mention") {
-                Logger.log("App mentioned")
                 appMentioned(slackData)
             }
             if (slackData.event.type == "team_join") {
                 const slackCreateMessageAPI: string =
                     "https://slack.com/api/chat.postMessage"
-                UrlFetchApp.fetch(slackCreateMessageAPI, {
+                GoogleAppsScript.UrlFetchApp.fetch(slackCreateMessageAPI, {
                     method: "post",
                     headers: { Authorization: `Bearer ${slackAuthToken}` },
                     payload: {
