@@ -46,28 +46,48 @@ function getEmailList(
     return mailData
 }
 
+interface errorObj {
+    error: boolean
+    message?: string
+}
+
 function addEmail(
     sheet: GoogleAppsScript.Spreadsheet.Sheet,
     name: string,
-    address: string
-): { error: boolean; message?: string } {
-    let error = false
-    let message = ""
-    if (!!sheet.createTextFinder(address).findAll().length) {
-        error = true
-        message += "このメールアドレスは既に登録済みです。"
+    address: string,
+    id: string
+): errorObj {
+    let error = {
+        error: false,
+        message: ""
     }
-    if (!error) {
-        sheet.appendRow([name, address, new Date().toLocaleDateString("ja-jp")])
-        SendEmail(
-            address,
-            "メールアドレス登録完了",
-            `${name}（${address}）がSlack Email Notification for EPCに登録されました。 \n 配信解除を希望する場合には/unsubscribeを実行してください。\n 質問がある場合には#help-slackをご利用ください。\n \n 栄光学園物理研究部 Slack運営チーム`
-        )
+
+    if (!!sheet.createTextFinder(id).findAll().length) {
+        error.error = true
+        error.message += "このメールアドレスは既に登録済みです"
+        return error
     }
+    if (address == "" || address == null || address == "no_text") {
+        error.error = true
+        error.message = `メールアドレスを指定してください`
+        return error
+    }
+
+    const re = /^(([^<>()[\]\\,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    if (!re.test(address)) {
+        error.error = true
+        error.message = `メールアドレスの形式が正しくありません: ${address}`
+        return error
+    }
+
+    sheet.appendRow([name, address, new Date().toLocaleDateString("ja-jp"), id])
+    SendEmail(
+        address,
+        "メールアドレス登録完了",
+        `${name}（${address}）がSlack Email Notification for EPCに登録されました。 \n 配信解除を希望する場合には/unsubscribeを実行してください。\n 質問がある場合には#help-slackをご利用ください。\n \n 栄光学園物理研究部 Slack運営チーム`
+    )
     return {
-        error: error,
-        message: message
+        error: error.error
     }
 }
 
@@ -83,14 +103,6 @@ function deleteEmail(
     if (!matchCell.length) {
         error = true
         message += "このメールアドレスは登録されていません"
-    }
-    if (!error) {
-        sheet.deleteRow(matchCell[0].getRow())
-        SendEmail(
-            address,
-            "メールアドレス登録解除完了",
-            `登録解除が完了しました。\n \n 栄光学園物理研究部 Slack運営チーム`
-        )
     }
     return {
         error: error,
@@ -234,9 +246,7 @@ function newMemberJoined(id: string) {
             blocks: JSON.stringify(blocks)
         }
     }
-    const response = JSON.parse(
-        UrlFetchApp.fetch(slackCreateMessageAPI, params).getContentText()
-    )
+    UrlFetchApp.fetch(slackCreateMessageAPI, params).getContentText()
     const returnObj = { blocks: blocks }
     return ContentService.createTextOutput(
         JSON.stringify(returnObj)
@@ -267,8 +277,12 @@ function subscribe(e) {
         userInfo.profile.display_name_normalized != ""
             ? userInfo.profile.display_name_normalized
             : userInfo.profile.real_name_normalized
-    const address: string = userInfo.profile.email
-    const addEmailStatus = addEmail(sheet, name, address)
+    let address: string = userInfo.profile.email
+    if (address == "" || address == null) {
+        // Slackからユーザーのメールを取得できない場合には引数から取得する
+        address = slackData.text
+    }
+    const addEmailStatus = addEmail(sheet, name, address, slackData.user_id)
     const message: string = addEmailStatus.error
         ? addEmailStatus.message
         : `<@${slackData.user_id}> を登録しました`
@@ -283,9 +297,7 @@ function subscribe(e) {
 
 function unsubscribe(e) {
     const slackData: Readonly<slashCommandResponse> = e.parameter
-    const userInfo = getUserInfo(slackData.user_id)
-    const address: string = userInfo.profile.email
-    const deleteEmailStatus = deleteEmail(sheet, address)
+    const deleteEmailStatus = deleteEmail(sheet, slackData.user_id)
     const message: string = deleteEmailStatus.error
         ? deleteEmailStatus.message
         : "登録解除しました"
