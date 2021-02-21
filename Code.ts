@@ -310,6 +310,19 @@ function unsubscribe(e) {
     ).setMimeType(ContentService.MimeType.JSON)
 }
 
+function channel_created(e) {
+    const slackCreateMessageAPI: string =
+        "https://slack.com/api/chat.postMessage"
+    UrlFetchApp.fetch(slackCreateMessageAPI, {
+        method: "post",
+        headers: { Authorization: `Bearer ${slackAuthToken}` },
+        payload: {
+            channel: "C01N5EH24SV",
+            text: `:hash: 新しいチャンネルが作られました <#${e.event.channel.id}> by <@${e.event.channel.creator}>！`
+        }
+    }).getContentText()
+}
+
 function getUserInfo(
     id: string
 ): {
@@ -350,23 +363,27 @@ function doPost(e) {
         const slackData: slackEventResponse = JSON.parse(
             e.postData.getDataAsString()
         )
-        if (slackData.token == slackVerificationToken)
+        if (slackData.token == slackVerificationToken) {
             if (slackData.event.type == "app_mention") {
                 Logger.log("App mentioned")
                 appMentioned(slackData)
             }
-        if (slackData.event.type == "team_join") {
-            const slackCreateMessageAPI: string =
-                "https://slack.com/api/chat.postMessage"
-            UrlFetchApp.fetch(slackCreateMessageAPI, {
-                method: "post",
-                headers: { Authorization: `Bearer ${slackAuthToken}` },
-                payload: {
-                    channel: "C01N5EH24SV",
-                    text: `:wave: ようこそ、 <@${slackData.event.user.id}>！`
-                }
-            }).getContentText()
-            newMemberJoined(slackData.event.user.id)
+            if (slackData.event.type == "team_join") {
+                const slackCreateMessageAPI: string =
+                    "https://slack.com/api/chat.postMessage"
+                UrlFetchApp.fetch(slackCreateMessageAPI, {
+                    method: "post",
+                    headers: { Authorization: `Bearer ${slackAuthToken}` },
+                    payload: {
+                        channel: "C01N5EH24SV",
+                        text: `:wave: ようこそ、 <@${slackData.event.user.id}>！`
+                    }
+                }).getContentText()
+                newMemberJoined(slackData.event.user.id)
+            }
+            if (slackData.event.type == "channel_created") {
+                channel_created(slackData)
+            }
         }
     } else if (
         e.postData.type == "application/x-www-form-urlencoded" &&
